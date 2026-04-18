@@ -4,7 +4,8 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package.json package-lock.json ./
-RUN npm install --include=dev
+ENV NODE_ENV=development
+RUN npm install
 
 COPY tsconfig.json drizzle.config.ts ./
 COPY src/ ./src/

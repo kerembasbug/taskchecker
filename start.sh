@@ -5,12 +5,12 @@ echo "PORT: $PORT"
 echo "DATABASE_PATH: $DATABASE_PATH"
 echo "HOSTNAME: $HOSTNAME"
 echo "pwd: $(pwd)"
-echo "ls dist/:"
-ls -la dist/ 2>&1
-echo "ls node_modules/better-sqlite3/:"
-ls -la node_modules/better-sqlite3/ 2>&1 | head -5
-echo "Starting node..."
-node dist/server.js > /app/data/startup.log 2>&1
-EXIT_CODE=$?
-echo "Node exited with code: $EXIT_CODE" >> /app/data/startup.log
-echo "Node exited with code: $EXIT_CODE"
+echo "node version: $(node --version)"
+echo "Files in /app:"
+ls -la /app/ 2>&1
+echo "Files in /app/dist:"
+ls -la /app/dist/ 2>&1
+echo "Files in /app/node_modules/better-sqlite3:"
+ls /app/node_modules/better-sqlite3/build/ 2>&1 || echo "No build dir"
+echo "=== Starting node dist/server.js ==="
+node --trace-warnings dist/server.js 2>&1
