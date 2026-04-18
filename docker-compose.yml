@@ -5,11 +5,20 @@ services:
       - "3000:3000"
     environment:
       - PASSWORD=${PASSWORD:-admin123}
-      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - DATABASE_URL=file:/app/data/taskchecker.db
+      - JWT_SECRET=${JWT_SECRET:-tc-s3cr3t-jwt-k3y-pr0d-2026}
+      - DATABASE_PATH=/app/data
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
     volumes:
       - taskchecker_data:/app/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/login"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
 
 volumes:
   taskchecker_data:
