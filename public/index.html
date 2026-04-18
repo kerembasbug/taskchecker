@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskChecker</title>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+    
     <link href="/assets/style.css" rel="stylesheet">
 </head>
 <body x-data="taskChecker()" x-init="init()" class="dark-body">
@@ -17,9 +17,9 @@
             <h1>TaskChecker</h1>
         </div>
         <div class="header-right">
-            <span class="ws-status" :class="wsConnected ? 'connected' : 'disconnected'">
+            <span class="ws-status connected">
                 <span class="dot"></span>
-                <span x-text="wsConnected ? 'Live' : 'Offline'"></span>
+                <span>API</span>
             </span>
             <button @click="logout()" class="btn-ghost">Cikis</button>
         </div>
@@ -88,8 +88,7 @@ function taskChecker() {
         tasks: [],
         filter: 'all',
         showAddModal: false,
-        wsConnected: false,
-        ws: null,
+        refreshTimer: null,
         newTask: { title: '', description: '', priority: 'medium' },
 
         get filteredTasks() {
@@ -102,7 +101,7 @@ function taskChecker() {
             const token = localStorage.getItem('token');
             if (!token) { location.href = '/login'; return; }
             await this.fetchTasks();
-            this.connectWS();
+            this.refreshTimer = setInterval(() => this.fetchTasks(), 30000);
         },
 
         headers() {
@@ -110,9 +109,11 @@ function taskChecker() {
         },
 
         async fetchTasks() {
-            const r = await fetch('/api/tasks', { headers: this.headers() });
-            if (r.status === 401) { location.href = '/login'; return; }
-            this.tasks = await r.json();
+            try {
+                const r = await fetch('/api/tasks', { headers: this.headers() });
+                if (r.status === 401) { location.href = '/login'; return; }
+                this.tasks = await r.json();
+            } catch {}
         },
 
         async addTask() {
@@ -140,27 +141,6 @@ function taskChecker() {
         async deleteTask(id) {
             await fetch('/api/tasks/' + id, { method: 'DELETE', headers: this.headers() });
             await this.fetchTasks();
-        },
-
-        connectWS() {
-            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            this.ws = new WebSocket(protocol + '//' + location.host + '/ws');
-            this.ws.onopen = () => { this.wsConnected = true; };
-            this.ws.onclose = () => {
-                this.wsConnected = false;
-                setTimeout(() => this.connectWS(), 3000);
-            };
-            this.ws.onmessage = (e) => {
-                const msg = JSON.parse(e.data);
-                if (msg.event === 'created') this.tasks.unshift(msg.data);
-                else if (msg.event === 'updated') {
-                    const i = this.tasks.findIndex(t => t.id === msg.data.id);
-                    if (i >= 0) this.tasks[i] = msg.data;
-                }
-                else if (msg.event === 'deleted') {
-                    this.tasks = this.tasks.filter(t => t.id !== msg.data.id);
-                }
-            };
         },
 
         formatDate(ts) {

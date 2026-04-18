@@ -2,9 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { Hono } from "hono";
-import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, saveDb } from "../db/index.js";
-
-const mcpSessions = new Map<string, { server: McpServer; transport: WebStandardStreamableHTTPServerTransport }>();
+import type { Task } from "../db/index.js";
+import { getAllTasks, createTask, updateTask, deleteTask, saveDb } from "../db/index.js";
 
 export function createMcpServer() {
   const server = new McpServer({ name: "taskchecker", version: "1.0.0" });
@@ -69,25 +68,21 @@ export function createMcpServer() {
 
 export function setupMcpRoutes(app: Hono) {
   app.all("/mcp", async (c) => {
-    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
-    const mcpServer = createMcpServer();
-    await mcpServer.connect(transport);
-    const sessionId = transport.sessionId;
-    if (sessionId) mcpSessions.set(sessionId, { server: mcpServer, transport });
-    const request = new Request(c.req.url, { method: c.req.method, headers: c.req.raw.headers, body: c.req.raw.body });
-    const response = await transport.handleRequest(request);
-    if (sessionId) mcpSessions.delete(sessionId);
-    return new Response(response.body, { status: response.status, headers: response.headers });
+    try {
+      const transport = new WebStandardStreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+      });
+      const mcpServer = createMcpServer();
+      await mcpServer.connect(transport);
+      const response = await transport.handleRequest(c.req.raw);
+      return response;
+    } catch (e) {
+      console.error("[TC] MCP error:", e);
+      return c.json({ error: "MCP request failed" }, 500);
+    }
   });
 
   app.all("/mcp/*", async (c) => {
-    const request = new Request(c.req.url, { method: c.req.method, headers: c.req.raw.headers, body: c.req.raw.body });
-    const sessionId = request.headers.get("mcp-session-id");
-    if (sessionId && mcpSessions.has(sessionId)) {
-      const { transport } = mcpSessions.get(sessionId)!;
-      const response = await transport.handleRequest(request);
-      return new Response(response.body, { status: response.status, headers: response.headers });
-    }
-    return c.json({ error: "Invalid session" }, 400);
+    return c.json({ error: "MCP endpoint - use /mcp" }, 400);
   });
 }

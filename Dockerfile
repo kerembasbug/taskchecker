@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 ENV NODE_ENV=development
 RUN npm install
 
-COPY tsconfig.json drizzle.config.ts ./
+COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
 
