@@ -1,0 +1,15 @@
+services:
+  taskchecker:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PASSWORD=${PASSWORD:-admin123}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - DATABASE_URL=file:/app/data/taskchecker.db
+    volumes:
+      - taskchecker_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  taskchecker_data:

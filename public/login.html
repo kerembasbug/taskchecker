@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskChecker - Login</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="/assets/style.css" rel="stylesheet">
+</head>
+<body class="dark-body">
+    <div class="login-container" x-data="{ password: '', error: '', loading: false }">
+        <div class="login-card">
+            <div class="login-logo">TC</div>
+            <h1 class="login-title">TaskChecker</h1>
+            <p class="login-subtitle">Giris yapin</p>
+            <form @submit.prevent="loading=true; fetch('/api/auth/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})}).then(r=>r.json()).then(d=>{loading=false;if(d.token){localStorage.setItem('token',d.token);location.href='/'}else{error='Gecersiz sifre'}})">
+                <input type="password" x-model="password" class="login-input" placeholder="Sifre" autofocus>
+                <p x-show="error" x-text="error" class="login-error"></p>
+                <button type="submit" class="login-btn" :disabled="loading">
+                    <span x-show="!loading">Giris</span>
+                    <span x-show="loading">...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

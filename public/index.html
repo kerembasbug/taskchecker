@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskChecker</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10" defer></script>
+    <link href="/assets/style.css" rel="stylesheet">
+</head>
+<body x-data="taskChecker()" x-init="init()" class="dark-body">
+
+<div class="app">
+    <header class="header">
+        <div class="header-left">
+            <span class="logo">TC</span>
+            <h1>TaskChecker</h1>
+        </div>
+        <div class="header-right">
+            <span class="ws-status" :class="wsConnected ? 'connected' : 'disconnected'">
+                <span class="dot"></span>
+                <span x-text="wsConnected ? 'Live' : 'Offline'"></span>
+            </span>
+            <button @click="logout()" class="btn-ghost">Cikis</button>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <div class="filter-tabs">
+            <button @click="filter='all'" :class="{'active':filter==='all'}">Tumu</button>
+            <button @click="filter='active'" :class="{'active':filter==='active'}">Aktif</button>
+            <button @click="filter='completed'" :class="{'active':filter==='completed'}">Tamamlanan</button>
+        </div>
+        <button @click="showAddModal=true" class="btn-primary">+ Yeni Task</button>
+    </div>
+
+    <div class="task-list">
+        <template x-for="task in filteredTasks" :key="task.id">
+            <div class="task-card" :class="'priority-'+task.priority" x-transition>
+                <div class="task-left">
+                    <button @click="toggleComplete(task)" class="check-btn" :class="{'checked':task.status==='completed'}">
+                        <svg x-show="task.status==='completed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </button>
+                </div>
+                <div class="task-content">
+                    <h3 :class="{'completed-text':task.status==='completed'}" x-text="task.title"></h3>
+                    <p x-show="task.description" x-text="task.description" class="task-desc"></p>
+                    <div class="task-meta">
+                        <span class="badge" :class="'source-'+task.source" x-text="task.source"></span>
+                        <span class="badge" :class="'priority-badge-'+task.priority" x-text="task.priority"></span>
+                        <span class="task-time" x-text="formatDate(task.createdAt)"></span>
+                    </div>
+                </div>
+                <div class="task-actions">
+                    <button @click="deleteTask(task.id)" class="btn-icon" title="Sil">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="m19 6-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </template>
+        <div x-show="filteredTasks.length===0" class="empty-state">
+            <p>Task bulunamadi</p>
+        </div>
+    </div>
+
+    <div x-show="showAddModal" class="modal-overlay" @click.self="showAddModal=false">
+        <div class="modal">
+            <h2>Yeni Task</h2>
+            <input type="text" x-model="newTask.title" class="input" placeholder="Task basligi" @keydown.enter="addTask()">
+            <textarea x-model="newTask.description" class="input" placeholder="Aciklama (opsiyonel)" rows="3"></textarea>
+            <select x-model="newTask.priority" class="input">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+            </select>
+            <div class="modal-actions">
+                <button @click="showAddModal=false" class="btn-ghost">Iptal</button>
+                <button @click="addTask()" class="btn-primary">Ekle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function taskChecker() {
+    return {
+        tasks: [],
+        filter: 'all',
+        showAddModal: false,
+        wsConnected: false,
+        ws: null,
+        newTask: { title: '', description: '', priority: 'medium' },
+
+        get filteredTasks() {
+            if (this.filter === 'active') return this.tasks.filter(t => t.status === 'active');
+            if (this.filter === 'completed') return this.tasks.filter(t => t.status === 'completed');
+            return this.tasks;
+        },
+
+        async init() {
+            const token = localStorage.getItem('token');
+            if (!token) { location.href = '/login'; return; }
+            await this.fetchTasks();
+            this.connectWS();
+        },
+
+        headers() {
+            return { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' };
+        },
+
+        async fetchTasks() {
+            const r = await fetch('/api/tasks', { headers: this.headers() });
+            if (r.status === 401) { location.href = '/login'; return; }
+            this.tasks = await r.json();
+        },
+
+        async addTask() {
+            if (!this.newTask.title.trim()) return;
+            await fetch('/api/tasks', {
+                method: 'POST',
+                headers: this.headers(),
+                body: JSON.stringify({ ...this.newTask, source: 'web' })
+            });
+            this.newTask = { title: '', description: '', priority: 'medium' };
+            this.showAddModal = false;
+            await this.fetchTasks();
+        },
+
+        async toggleComplete(task) {
+            const newStatus = task.status === 'completed' ? 'active' : 'completed';
+            await fetch('/api/tasks/' + task.id, {
+                method: 'PATCH',
+                headers: this.headers(),
+                body: JSON.stringify({ status: newStatus })
+            });
+            await this.fetchTasks();
+        },
+
+        async deleteTask(id) {
+            await fetch('/api/tasks/' + id, { method: 'DELETE', headers: this.headers() });
+            await this.fetchTasks();
+        },
+
+        connectWS() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            this.ws = new WebSocket(protocol + '//' + location.host + '/ws');
+            this.ws.onopen = () => { this.wsConnected = true; };
+            this.ws.onclose = () => {
+                this.wsConnected = false;
+                setTimeout(() => this.connectWS(), 3000);
+            };
+            this.ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.event === 'created') this.tasks.unshift(msg.data);
+                else if (msg.event === 'updated') {
+                    const i = this.tasks.findIndex(t => t.id === msg.data.id);
+                    if (i >= 0) this.tasks[i] = msg.data;
+                }
+                else if (msg.event === 'deleted') {
+                    this.tasks = this.tasks.filter(t => t.id !== msg.data.id);
+                }
+            };
+        },
+
+        formatDate(ts) {
+            return new Date(ts).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        },
+
+        logout() {
+            localStorage.removeItem('token');
+            location.href = '/login';
+        }
+    };
+}
+</script>
+</body>
+</html>

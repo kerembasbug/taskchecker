@@ -1,0 +1,5 @@
+.ENV
+data/
+node_modules/
+dist/
+*.db
