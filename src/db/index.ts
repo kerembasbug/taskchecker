@@ -1,25 +1,63 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "./schema.js";
+import { JSONFilePreset } from "lowdb/node";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATABASE_PATH || path.join(__dirname, "..", "data");
-const dbFilePath = path.join(dataDir, "taskchecker.db");
+const dbFilePath = path.join(dataDir, "taskchecker.json");
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-console.log(`[TC DB] Initializing better-sqlite3 at: ${dbFilePath}`);
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "active" | "completed";
+  priority: "low" | "medium" | "high" | "critical";
+  source: "web" | "mcp" | "api";
+  createdAt: number;
+  completedAt: number | null;
+  updatedAt: number;
+}
 
-const sqlite = new Database(dbFilePath);
-sqlite.pragma("journal_mode = WAL");
+interface DbData {
+  tasks: Task[];
+}
 
-sqlite.exec("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'active', priority TEXT NOT NULL DEFAULT 'medium', source TEXT NOT NULL DEFAULT 'web', created_at INTEGER NOT NULL, completed_at INTEGER, updated_at INTEGER NOT NULL)");
+const defaultData: DbData = { tasks: [] };
 
-export const db = drizzle(sqlite, { schema });
+const db = await JSONFilePreset<DbData>(dbFilePath, defaultData);
 
-console.log(`[TC DB] DB initialized successfully`);
+export const getAllTasks = (): Task[] => db.data.tasks;
+export const getTaskById = (id: string): Task | undefined => db.data.tasks.find(t => t.id === id);
+
+export const createTask = (task: Omit<Task, "id"> & { id?: string }): Task => {
+  const newTask: Task = {
+    ...task,
+    id: task.id || crypto.randomUUID(),
+  };
+  db.data.tasks.push(newTask);
+  return newTask;
+};
+
+export const updateTask = (id: string, updates: Partial<Task>): Task | undefined => {
+  const idx = db.data.tasks.findIndex(t => t.id === id);
+  if (idx === -1) return undefined;
+  db.data.tasks[idx] = { ...db.data.tasks[idx], ...updates };
+  return db.data.tasks[idx];
+};
+
+export const deleteTask = (id: string): boolean => {
+  const len = db.data.tasks.length;
+  db.data.tasks = db.data.tasks.filter(t => t.id !== id);
+  return db.data.tasks.length < len;
+};
+
+export const saveDb = async () => {
+  await db.write();
+};
+
+console.log(`[TC DB] lowdb initialized at: ${dbFilePath} (${db.data.tasks.length} tasks)`);

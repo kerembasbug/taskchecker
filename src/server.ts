@@ -23,15 +23,13 @@ app.get("/login", (c) => {
   } catch { return c.text("Login not found", 500); }
 });
 
-// Lazy initialization
+// Lazy initialization of DB and routes
 let initialized = false;
 const init = async () => {
   if (initialized) return;
-  console.log("[TC] Initializing DB and routes...");
+  console.log("[TC] Initializing...");
 
-  const { db } = await import("./db/index.js");
-  const { tasks } = await import("./db/schema.js");
-  const { eq, desc } = await import("drizzle-orm");
+  const { getAllTasks, getTaskById, createTask, updateTask, deleteTask, saveDb } = await import("./db/index.js");
   const { login } = await import("./api/auth.js");
   const { setupMcpRoutes } = await import("./mcp/server.js");
 
@@ -43,42 +41,45 @@ const init = async () => {
   });
 
   app.get("/api/tasks", async (c) => {
+    await saveDb();
+    const tasks = getAllTasks();
     const s = c.req.query("status") || "all";
-    let r;
-    if (s === "active") r = await db.select().from(tasks).where(eq(tasks.status, "active")).orderBy(desc(tasks.createdAt));
-    else if (s === "completed") r = await db.select().from(tasks).where(eq(tasks.status, "completed")).orderBy(desc(tasks.createdAt));
-    else r = await db.select().from(tasks).orderBy(desc(tasks.createdAt));
-    return c.json(r);
+    if (s === "active") return c.json(tasks.filter(t => t.status === "active"));
+    if (s === "completed") return c.json(tasks.filter(t => t.status === "completed"));
+    return c.json(tasks);
   });
 
   app.post("/api/tasks", async (c) => {
     const b = await c.req.json();
-    const id = crypto.randomUUID(), now = new Date();
-    const t = { id, title: b.title, description: b.description || null, priority: b.priority || "medium", source: b.source || "api", status: "active" as const, createdAt: now, updatedAt: now };
+    const now = Date.now();
+    const t = createTask({ title: b.title, description: b.description || null, priority: b.priority || "medium", source: b.source || "api", status: "active" as const, createdAt: now, completedAt: null, updatedAt: now });
+    await saveDb();
     return c.json(t, 201);
   });
 
   app.patch("/api/tasks/:id", async (c) => {
-    const id = c.req.param("id"), b = await c.req.json(), now = new Date();
+    const id = c.req.param("id"), b = await c.req.json(), now = Date.now();
     const u: Record<string, unknown> = { updatedAt: now };
     if (b.title !== undefined) u.title = b.title;
     if (b.description !== undefined) u.description = b.description;
     if (b.priority !== undefined) u.priority = b.priority;
     if (b.status !== undefined) { u.status = b.status; if (b.status === "completed") u.completedAt = now; }
-    const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
-    return c.json(updated);
+    const updated = updateTask(id, u);
+    await saveDb();
+    return c.json(updated || { error: "Not found" });
   });
 
   app.delete("/api/tasks/:id", async (c) => {
+    deleteTask(c.req.param("id"));
+    await saveDb();
     return c.json({ ok: true });
   });
 
   setupMcpRoutes(app);
   initialized = true;
-  console.log("[TC] Initialization complete!");
+  console.log("[TC] Initialized!");
 };
 
-// Initialize on first API request
 app.use("/api/*", async (c, next) => { if (!initialized) await init(); return next(); });
 app.use("/mcp/*", async (c, next) => { if (!initialized) await init(); return next(); });
 
