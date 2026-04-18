@@ -5,15 +5,22 @@ import { login, authMiddleware } from "./api/auth.js";
 import tasksApi from "./api/tasks.js";
 import { setupMcpRoutes } from "./mcp/server.js";
 import { addClient, removeClient } from "./ws.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.join(__dirname, "..", "public");
 
 const app = new Hono();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
-app.use("/public/*", serveStatic({ root: "./" }));
-app.use("/assets/*", serveStatic({ root: "./public" }));
+app.use("/assets/*", serveStatic({ root: publicDir }));
 
-app.get("/", serveStatic({ root: "./public", path: "index.html" }));
-app.get("/login", serveStatic({ root: "./public", path: "login.html" }));
+app.get("/", (c) => {
+  return c.html("PUBLIC_DIR:" + publicDir);
+});
+
+app.get("/login", serveStatic({ root: publicDir, path: "login.html" }));
 
 app.post("/api/auth/login", async (c) => {
   const { password } = await c.req.json();
