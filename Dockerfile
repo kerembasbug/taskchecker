@@ -11,6 +11,7 @@ COPY src/ ./src/
 RUN npm run build
 
 COPY public ./public
+RUN cp node_modules/sql.js/dist/sql-wasm.wasm /app/sql-wasm.wasm
 RUN mkdir -p /app/data
 
 ENV NODE_ENV=production

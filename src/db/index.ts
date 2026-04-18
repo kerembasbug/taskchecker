@@ -12,7 +12,19 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const SQL = await initSqlJs();
+const SQL = await initSqlJs({
+  locateFile: (file: string) => {
+    const paths = [
+      path.join(process.cwd(), "sql-wasm.wasm"),
+      path.join(process.cwd(), "node_modules", "sql.js", "dist", file),
+      path.join(__dirname, "..", "node_modules", "sql.js", "dist", file),
+    ];
+    for (const p of paths) {
+      if (fs.existsSync(p)) return p;
+    }
+    return file;
+  }
+});
 
 let sqlDb: initSqlJs.Database;
 if (fs.existsSync(dbFilePath)) {
