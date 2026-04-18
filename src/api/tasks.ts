@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq, desc } from "drizzle-orm";
-import { db, saveDb } from "../db/index.js";
 import { tasks } from "../db/schema.js";
+import { db } from "../db/index.js";
 import { authMiddleware } from "./auth.js";
 import { broadcastTask } from "../ws.js";
 
@@ -41,7 +41,6 @@ app.post("/", async (c) => {
   };
 
   await db.insert(tasks).values(newTask);
-  saveDb();
   
   broadcastTask("created", newTask);
   return c.json(newTask, 201);
@@ -62,7 +61,6 @@ app.patch("/:id", async (c) => {
   }
 
   await db.update(tasks).set(updates).where(eq(tasks.id, id));
-  saveDb();
   
   const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
   broadcastTask("updated", updated);
@@ -72,7 +70,6 @@ app.patch("/:id", async (c) => {
 app.delete("/:id", async (c) => {
   const id = c.req.param("id");
   await db.delete(tasks).where(eq(tasks.id, id));
-  saveDb();
   
   broadcastTask("deleted", { id });
   return c.json({ ok: true });

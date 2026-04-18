@@ -1,19 +1,18 @@
 FROM node:20-alpine
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
 ENV NODE_ENV=development
 RUN npm install
 
 COPY tsconfig.json drizzle.config.ts ./
 COPY src/ ./src/
-RUN npm run build && echo "=== Build successful ===" && ls -la dist/ && ls -la node_modules/sql.js/dist/sql-wasm.wasm
+RUN npm run build
 
 COPY public ./public
 RUN mkdir -p /app/data
-
-# Verify wasm file exists
-RUN ls -la node_modules/sql.js/dist/sql-wasm.wasm
 
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -22,4 +21,4 @@ ENV DATABASE_PATH=/app/data
 
 EXPOSE 3000
 
-CMD ["node", "--trace-warnings", "dist/server.js"]
+CMD ["node", "dist/server.js"]

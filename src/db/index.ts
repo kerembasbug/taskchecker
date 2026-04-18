@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/sql-js";
-import initSqlJs from "sql.js";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema.js";
 import path from "path";
 import fs from "fs";
@@ -13,52 +13,13 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-console.log(`[TC DB] Data dir: ${dataDir}`);
-console.log(`[TC DB] DB file: ${dbFilePath}`);
-console.log(`[TC DB] CWD: ${process.cwd()}`);
+console.log(`[TC DB] Initializing better-sqlite3 at: ${dbFilePath}`);
 
-const wasmPaths = [
-  path.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
-  path.join(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
-  "/app/node_modules/sql.js/dist/sql-wasm.wasm",
-];
+const sqlite = new Database(dbFilePath);
+sqlite.pragma("journal_mode = WAL");
 
-let wasmPath = wasmPaths[0];
-for (const p of wasmPaths) {
-  if (fs.existsSync(p)) {
-    wasmPath = p;
-    console.log(`[TC DB] Found WASM at: ${p}`);
-    break;
-  }
-}
+sqlite.exec("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'active', priority TEXT NOT NULL DEFAULT 'medium', source TEXT NOT NULL DEFAULT 'web', created_at INTEGER NOT NULL, completed_at INTEGER, updated_at INTEGER NOT NULL)");
 
-if (!fs.existsSync(wasmPath)) {
-  console.error(`[TC DB] FATAL: WASM file not found! Tried: ${wasmPaths.join(", ")}`);
-  throw new Error(`WASM file not found!`);
-}
+export const db = drizzle(sqlite, { schema });
 
-const wasmBuffer = new Uint8Array(fs.readFileSync(wasmPath));
-console.log(`[TC DB] Loading WASM from: ${wasmPath} (${wasmBuffer.length} bytes)`);
-
-const SQL = await initSqlJs({ wasmBinary: wasmBuffer as any });
-
-let sqlDb: initSqlJs.Database;
-if (fs.existsSync(dbFilePath)) {
-  const buffer = fs.readFileSync(dbFilePath);
-  sqlDb = new SQL.Database(buffer);
-  console.log(`[TC DB] Loaded existing database`);
-} else {
-  sqlDb = new SQL.Database();
-  console.log(`[TC DB] Created new database`);
-}
-
-sqlDb.run("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'active', priority TEXT NOT NULL DEFAULT 'medium', source TEXT NOT NULL DEFAULT 'web', created_at INTEGER NOT NULL, completed_at INTEGER, updated_at INTEGER NOT NULL)");
-
-export const saveDb = () => {
-  const data = sqlDb.export();
-  fs.writeFileSync(dbFilePath, Buffer.from(data));
-};
-
-export const db = drizzle(sqlDb, { schema });
-
-console.log(`[TC DB] DB initialized successfully at: ${dbFilePath}`);
+console.log(`[TC DB] DB initialized successfully`);

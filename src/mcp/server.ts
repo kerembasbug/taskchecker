@@ -2,8 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 import { Hono } from "hono";
-import { db, saveDb } from "../db/index.js";
 import { tasks } from "../db/schema.js";
+import { db } from "../db/index.js";
 import { eq, desc } from "drizzle-orm";
 import { broadcastTask } from "../ws.js";
 
@@ -36,7 +36,6 @@ export function createMcpServer() {
       };
 
       await db.insert(tasks).values(newTask);
-      saveDb();
       
       broadcastTask("created", newTask);
 
@@ -58,7 +57,6 @@ export function createMcpServer() {
         .update(tasks)
         .set({ status: "completed", completedAt: now, updatedAt: now })
         .where(eq(tasks.id, id));
-      saveDb();
 
       const results = await db.select().from(tasks).where(eq(tasks.id, id));
       if (results[0]) broadcastTask("updated", results[0]);
@@ -108,7 +106,6 @@ export function createMcpServer() {
       if (priority !== undefined) updates.priority = priority;
 
       await db.update(tasks).set(updates).where(eq(tasks.id, id));
-      saveDb();
       
       const results = await db.select().from(tasks).where(eq(tasks.id, id));
       if (results[0]) broadcastTask("updated", results[0]);
@@ -127,7 +124,6 @@ export function createMcpServer() {
     },
     async ({ id }) => {
       await db.delete(tasks).where(eq(tasks.id, id));
-      saveDb();
       
       broadcastTask("deleted", { id });
 

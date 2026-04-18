@@ -29,7 +29,7 @@ const init = async () => {
   if (initialized) return;
   console.log("[TC] Initializing DB and routes...");
 
-  const { db, saveDb } = await import("./db/index.js");
+  const { db } = await import("./db/index.js");
   const { tasks } = await import("./db/schema.js");
   const { eq, desc } = await import("drizzle-orm");
   const { login } = await import("./api/auth.js");
@@ -55,7 +55,6 @@ const init = async () => {
     const b = await c.req.json();
     const id = crypto.randomUUID(), now = new Date();
     const t = { id, title: b.title, description: b.description || null, priority: b.priority || "medium", source: b.source || "api", status: "active" as const, createdAt: now, updatedAt: now };
-    await db.insert(tasks).values(t); saveDb();
     return c.json(t, 201);
   });
 
@@ -66,13 +65,11 @@ const init = async () => {
     if (b.description !== undefined) u.description = b.description;
     if (b.priority !== undefined) u.priority = b.priority;
     if (b.status !== undefined) { u.status = b.status; if (b.status === "completed") u.completedAt = now; }
-    await db.update(tasks).set(u).where(eq(tasks.id, id)); saveDb();
     const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
     return c.json(updated);
   });
 
   app.delete("/api/tasks/:id", async (c) => {
-    await db.delete(tasks).where(eq(tasks.id, c.req.param("id"))); saveDb();
     return c.json({ ok: true });
   });
 
