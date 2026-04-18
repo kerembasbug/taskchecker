@@ -5,91 +5,217 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TaskChecker</title>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    
     <link href="/assets/style.css" rel="stylesheet">
 </head>
-<body x-data="taskChecker()" x-init="init()" class="dark-body">
+<body class="dark-body">
 
-<div class="app">
-    <header class="header">
+<div class="dashboard" x-data="taskApp()" x-init="init()">
+
+    <div class="bg-gradient"></div>
+
+    <header class="header-bar">
         <div class="header-left">
-            <span class="logo">TC</span>
-            <h1>TaskChecker</h1>
+            <div class="logo-wrap">
+                <div class="logo">TC</div>
+                <div class="logo-text">
+                    <span class="logo-title">TaskChecker</span>
+                    <span class="logo-sub">Dashboard</span>
+                </div>
+            </div>
         </div>
         <div class="header-right">
-            <span class="ws-status connected">
-                <span class="dot"></span>
-                <span>API</span>
-            </span>
-            <button @click="logout()" class="btn-ghost">Cikis</button>
+            <div class="live-indicator">
+                <span class="pulse"></span>
+                <span>Live</span>
+            </div>
+            <button @click="logout()" class="btn-logout">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Çıkış
+            </button>
         </div>
     </header>
 
-    <div class="toolbar">
-        <div class="filter-tabs">
-            <button @click="filter='all'" :class="{'active':filter==='all'}">Tumu</button>
-            <button @click="filter='active'" :class="{'active':filter==='active'}">Aktif</button>
-            <button @click="filter='completed'" :class="{'active':filter==='completed'}">Tamamlanan</button>
+    <div class="stats-grid">
+        <div class="stat-card stat-total">
+            <div class="stat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" x-text="tasks.length">0</span>
+                <span class="stat-label">Toplam Task</span>
+            </div>
         </div>
-        <button @click="showAddModal=true" class="btn-primary">+ Yeni Task</button>
-    </div>
 
-    <div class="task-list">
-        <template x-for="task in filteredTasks" :key="task.id">
-            <div class="task-card" :class="'priority-'+task.priority" x-transition>
-                <div class="task-left">
-                    <button @click="toggleComplete(task)" class="check-btn" :class="{'checked':task.status==='completed'}">
-                        <svg x-show="task.status==='completed'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </button>
-                </div>
-                <div class="task-content">
-                    <h3 :class="{'completed-text':task.status==='completed'}" x-text="task.title"></h3>
-                    <p x-show="task.description" x-text="task.description" class="task-desc"></p>
-                    <div class="task-meta">
-                        <span class="badge" :class="'source-'+task.source" x-text="task.source"></span>
-                        <span class="badge" :class="'priority-badge-'+task.priority" x-text="task.priority"></span>
-                        <span class="task-time" x-text="formatDate(task.createdAt)"></span>
-                    </div>
-                </div>
-                <div class="task-actions">
-                    <button @click="deleteTask(task.id)" class="btn-icon" title="Sil">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="m19 6-.867 12.142A2 2 0 0 1 16.138 20H7.862a2 2 0 0 1-1.995-1.858L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"></path></svg>
-                    </button>
+        <div class="stat-card stat-active">
+            <div class="stat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" x-text="activeCount">0</span>
+                <span class="stat-label">Aktif</span>
+            </div>
+        </div>
+
+        <div class="stat-card stat-completed">
+            <div class="stat-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+            </div>
+            <div class="stat-info">
+                <span class="stat-value" x-text="completedCount">0</span>
+                <span class="stat-label">Tamamlandı</span>
+            </div>
+        </div>
+
+        <div class="stat-card stat-progress">
+            <div class="progress-ring-wrap">
+                <svg class="progress-ring" viewBox="0 0 120 120">
+                    <circle class="progress-ring-bg" cx="60" cy="60" r="52"/>
+                    <circle class="progress-ring-fill" cx="60" cy="60" r="52"
+                        :style="'stroke-dashoffset: ' + (327 - (327 * completionRate / 100))"/>
+                </svg>
+                <div class="progress-ring-text">
+                    <span class="progress-value" x-text="Math.round(completionRate)">0</span>
+                    <span class="progress-unit">%</span>
                 </div>
             </div>
-        </template>
-        <div x-show="filteredTasks.length===0" class="empty-state">
-            <p>Task bulunamadi</p>
+            <div class="stat-info">
+                <span class="stat-label">Tamamlanma</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-bar-wrap">
+        <div class="progress-bar-label">
+            <span>Günlük İlerleme</span>
+            <span x-text="completionRate.toFixed(0) + '%'">0%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-bar-fill" :style="'width: ' + completionRate + '%'"></div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="toolbar">
+            <div class="filter-tabs">
+                <button @click="filter='all'" :class="{'active':filter==='all'}">Tümü</button>
+                <button @click="filter='active'" :class="{'active':filter==='active'}">Aktif</button>
+                <button @click="filter='completed'" :class="{'active':filter==='completed'}">Tamamlanan</button>
+            </div>
+            <button @click="showAddModal=true" class="btn-add">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Yeni Task
+            </button>
+        </div>
+
+        <div class="task-list">
+            <template x-for="task in filteredTasks" :key="task.id">
+                <div class="task-card" :class="'priority-'+task.priority" x-transition>
+                    <div class="task-left">
+                        <button @click="toggleComplete(task)" class="check-btn" :class="{'checked':task.status==='completed'}">
+                            <svg x-show="task.status==='completed'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="task-body">
+                        <div class="task-main">
+                            <h3 :class="{'completed-text':task.status==='completed'}" x-text="task.title"></h3>
+                            <p x-show="task.description" x-text="task.description" class="task-desc"></p>
+                        </div>
+                        <div class="task-meta">
+                            <span class="badge" :class="'source-'+task.source" x-text="task.source"></span>
+                            <span class="badge" :class="'priority-badge-'+task.priority" x-text="task.priority"></span>
+                            <span class="task-time" x-text="formatDate(task.createdAt)"></span>
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <button @click="deleteTask(task.id)" class="btn-delete" title="Sil">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+            <div x-show="filteredTasks.length===0" class="empty-state">
+                <div class="empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                    </svg>
+                </div>
+                <p>Task bulunamadı</p>
+            </div>
         </div>
     </div>
 
     <div x-show="showAddModal" class="modal-overlay" @click.self="showAddModal=false">
         <div class="modal">
-            <h2>Yeni Task</h2>
-            <input type="text" x-model="newTask.title" class="input" placeholder="Task basligi" @keydown.enter="addTask()">
-            <textarea x-model="newTask.description" class="input" placeholder="Aciklama (opsiyonel)" rows="3"></textarea>
-            <select x-model="newTask.priority" class="input">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-            </select>
-            <div class="modal-actions">
-                <button @click="showAddModal=false" class="btn-ghost">Iptal</button>
-                <button @click="addTask()" class="btn-primary">Ekle</button>
+            <div class="modal-header">
+                <h2>Yeni Task Ekle</h2>
+                <button @click="showAddModal=false" class="modal-close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="text" x-model="newTask.title" class="input" placeholder="Task başlığı..." @keydown.enter="addTask()">
+                <textarea x-model="newTask.description" class="input" placeholder="Açıklama (opsiyonel)" rows="3"></textarea>
+                <select x-model="newTask.priority" class="input">
+                    <option value="low">Düşük öncelik</option>
+                    <option value="medium" selected>Normal öncelik</option>
+                    <option value="high">Yüksek öncelik</option>
+                    <option value="critical">Kritik</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button @click="showAddModal=false" class="btn-cancel">İptal</button>
+                <button @click="addTask()" class="btn-submit">Ekle</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function taskChecker() {
+function taskApp() {
     return {
         tasks: [],
         filter: 'all',
         showAddModal: false,
         refreshTimer: null,
         newTask: { title: '', description: '', priority: 'medium' },
+
+        get activeCount() {
+            return this.tasks.filter(t => t.status === 'active').length;
+        },
+
+        get completedCount() {
+            return this.tasks.filter(t => t.status === 'completed').length;
+        },
+
+        get completionRate() {
+            if (this.tasks.length === 0) return 0;
+            return (this.completedCount / this.tasks.length) * 100;
+        },
 
         get filteredTasks() {
             if (this.filter === 'active') return this.tasks.filter(t => t.status === 'active');
@@ -101,7 +227,7 @@ function taskChecker() {
             const token = localStorage.getItem('token');
             if (!token) { location.href = '/login'; return; }
             await this.fetchTasks();
-            this.refreshTimer = setInterval(() => this.fetchTasks(), 30000);
+            this.refreshTimer = setInterval(() => this.fetchTasks(), 15000);
         },
 
         headers() {
@@ -144,7 +270,13 @@ function taskChecker() {
         },
 
         formatDate(ts) {
-            return new Date(ts).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const d = new Date(ts);
+            const now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return 'az önce';
+            if (diff < 3600000) return Math.floor(diff / 60000) + ' dk önce';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + ' saat önce';
+            return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
         },
 
         logout() {
