@@ -5,26 +5,18 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
-const dataDir = process.env.DATABASE_PATH || path.join(process.cwd(), "data");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dataDir = process.env.DATABASE_PATH || path.join(__dirname, "..", "data");
 const dbFilePath = path.join(dataDir, "taskchecker.db");
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const SQL = await initSqlJs({
-  locateFile: (file: string) => {
-    const paths = [
-      path.join(process.cwd(), "sql-wasm.wasm"),
-      path.join(process.cwd(), "node_modules", "sql.js", "dist", file),
-      path.join(__dirname, "..", "node_modules", "sql.js", "dist", file),
-    ];
-    for (const p of paths) {
-      if (fs.existsSync(p)) return p;
-    }
-    return file;
-  }
-});
+const wasmPath = path.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm");
+const wasmBinary = new Uint8Array(fs.readFileSync(wasmPath)).buffer;
+
+const SQL = await initSqlJs({ wasmBinary });
 
 let sqlDb: initSqlJs.Database;
 if (fs.existsSync(dbFilePath)) {
@@ -44,4 +36,4 @@ export const saveDb = () => {
 
 export const db = drizzle(sqlDb, { schema });
 
-console.log(`[DB] Connected to: ${dbFilePath}`);
+console.log(`[TaskChecker] DB initialized at: ${dbFilePath}`);
