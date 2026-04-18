@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/sql-js";
-import initSqlJs from "sql.js";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import Database from "better-sqlite3";
 import * as schema from "./schema.js";
 import path from "path";
 import fs from "fs";
@@ -13,27 +13,9 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const wasmPath = path.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm");
-const wasmBinary = new Uint8Array(fs.readFileSync(wasmPath)).buffer;
+const sqlite = new Database(dbFilePath);
+sqlite.exec("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'active', priority TEXT NOT NULL DEFAULT 'medium', source TEXT NOT NULL DEFAULT 'web', created_at INTEGER NOT NULL, completed_at INTEGER, updated_at INTEGER NOT NULL)");
 
-const SQL = await initSqlJs({ wasmBinary });
-
-let sqlDb: initSqlJs.Database;
-if (fs.existsSync(dbFilePath)) {
-  const buffer = fs.readFileSync(dbFilePath);
-  sqlDb = new SQL.Database(buffer);
-} else {
-  sqlDb = new SQL.Database();
-}
-
-sqlDb.run("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'active', priority TEXT NOT NULL DEFAULT 'medium', source TEXT NOT NULL DEFAULT 'web', created_at INTEGER NOT NULL, completed_at INTEGER, updated_at INTEGER NOT NULL)");
-
-export const saveDb = () => {
-  const data = sqlDb.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbFilePath, buffer);
-};
-
-export const db = drizzle(sqlDb, { schema });
+export const db = drizzle(sqlite, { schema });
 
 console.log(`[TaskChecker] DB initialized at: ${dbFilePath}`);

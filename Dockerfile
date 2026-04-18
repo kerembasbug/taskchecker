@@ -1,18 +1,17 @@
 FROM node:20-alpine
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++
+
 COPY package.json package-lock.json ./
 RUN npm install --include=dev
 
 COPY tsconfig.json drizzle.config.ts ./
 COPY src/ ./src/
-RUN npm run build && echo "=== Build OK ==="
+RUN npm run build && echo "=== Build successful ===" && ls -la dist/
 
 COPY public ./public
 RUN mkdir -p /app/data
-
-# Keep sql.js wasm file accessible
-RUN ls -la node_modules/sql.js/dist/sql-wasm.wasm
 
 ENV NODE_ENV=production
 ENV PORT=3000
