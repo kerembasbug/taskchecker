@@ -3,7 +3,8 @@ import { serve } from "@hono/node-server";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initDb, getAllTasks, getTaskById, createTask, updateTask, deleteTask, saveDb } from "./db/index.js";
+import { initDb, getAllTasks, getTaskById, createTask, updateTask, deleteTask, saveDb, getStats } from "./db/index.js";
+import type { TaskStatus, TaskPriority, TaskSource } from "./db/index.js";
 import { login, authMiddleware } from "./api/auth.js";
 import { setupMcpRoutes } from "./mcp/server.js";
 
@@ -37,20 +38,60 @@ app.post("/api/auth/login", async (c) => {
   }
 });
 
-app.use("/api/tasks/*", authMiddleware);
+app.use("/api/*", authMiddleware);
+
+app.get("/api/stats", (c) => c.json(getStats()));
 
 app.get("/api/tasks", (c) => {
-  const tasks = getAllTasks();
-  const s = c.req.query("status") || "all";
-  if (s === "active") return c.json(tasks.filter(t => t.status === "active"));
-  if (s === "completed") return c.json(tasks.filter(t => t.status === "completed"));
+  let tasks = getAllTasks();
+  const status = c.req.query("status");
+  const priority = c.req.query("priority");
+  const category = c.req.query("category");
+  const search = c.req.query("search");
+  const tag = c.req.query("tag");
+
+  if (status && status !== "all") tasks = tasks.filter(t => t.status === status);
+  if (priority) tasks = tasks.filter(t => t.priority === priority);
+  if (category) tasks = tasks.filter(t => t.category === category);
+  if (tag) tasks = tasks.filter(t => t.tags.includes(tag));
+  if (search) {
+    const q = search.toLowerCase();
+    tasks = tasks.filter(t => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q)));
+  }
+
+  const sort = c.req.query("sort") || "createdAt";
+  const order = c.req.query("order") || "desc";
+  tasks = tasks.sort((a, b) => {
+    let cmp = 0;
+    if (sort === "createdAt") cmp = a.createdAt - b.createdAt;
+    else if (sort === "updatedAt") cmp = a.updatedAt - b.updatedAt;
+    else if (sort === "dueDate") cmp = (a.dueDate || Infinity) - (b.dueDate || Infinity);
+    else if (sort === "priority") {
+      const p: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+      cmp = (p[a.priority] || 2) - (p[b.priority] || 2);
+    }
+    return order === "asc" ? cmp : -cmp;
+  });
+
   return c.json(tasks);
 });
 
 app.post("/api/tasks", async (c) => {
   const b = await c.req.json();
   const now = Date.now();
-  const t = createTask({ title: b.title, description: b.description || null, priority: b.priority || "medium", source: b.source || "api", status: "active" as const, createdAt: now, completedAt: null, updatedAt: now });
+  const t = createTask({
+    title: b.title,
+    description: b.description || null,
+    priority: (b.priority as TaskPriority) || "medium",
+    source: (b.source as TaskSource) || "api",
+    status: (b.status as TaskStatus) || "active",
+    category: b.category || null,
+    tags: Array.isArray(b.tags) ? b.tags : [],
+    dueDate: b.dueDate ? Number(b.dueDate) : null,
+    createdAt: now,
+    completedAt: null,
+    updatedAt: now,
+  });
   await saveDb();
   return c.json(t, 201);
 });
@@ -61,7 +102,14 @@ app.patch("/api/tasks/:id", async (c) => {
   if (b.title !== undefined) u.title = b.title;
   if (b.description !== undefined) u.description = b.description;
   if (b.priority !== undefined) u.priority = b.priority;
-  if (b.status !== undefined) { u.status = b.status; if (b.status === "completed") u.completedAt = now; }
+  if (b.status !== undefined) {
+    u.status = b.status;
+    if (b.status === "completed") u.completedAt = now;
+    if (b.status === "active" || b.status === "in_progress") u.completedAt = null;
+  }
+  if (b.category !== undefined) u.category = b.category;
+  if (b.tags !== undefined) u.tags = b.tags;
+  if (b.dueDate !== undefined) u.dueDate = b.dueDate ? Number(b.dueDate) : null;
   const updated = updateTask(id, u);
   await saveDb();
   return c.json(updated || { error: "Not found" }, updated ? 200 : 404);

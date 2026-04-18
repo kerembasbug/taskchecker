@@ -2,209 +2,253 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>TaskChecker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <link href="/assets/style.css" rel="stylesheet">
 </head>
 <body>
 
-<div class="dashboard" x-data="taskApp()" x-init="init()">
+<div class="app" x-data="taskApp()" x-init="init()">
 
-    <div class="bg-gradient"></div>
-
-    <header class="header-bar">
-        <div class="header-left">
-            <div class="logo-wrap">
-                <div class="logo">TC</div>
-                <div class="logo-text">
-                    <span class="logo-title">TaskChecker</span>
-                    <span class="logo-sub">Dashboard</span>
-                </div>
-            </div>
+<nav class="nav">
+    <div class="nav-inner">
+        <div class="nav-brand">
+            <div class="nav-logo">TC</div>
+            <span class="nav-title">TaskChecker</span>
         </div>
-        <div class="header-right">
-            <div style="display:flex;align-items:center;gap:4px;">
-                <span class="live-dot"></span>
-                <span class="live-label">Live</span>
-            </div>
-            <button @click="logout()" class="btn-logout">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                    <polyline points="16 17 21 12 16 7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
-                </svg>
-                Çıkış
-            </button>
-        </div>
-    </header>
-
-    <div class="stats-grid">
-        <div class="stat-card stat-total">
-            <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 11l3 3L22 4"/>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                </svg>
-            </div>
-            <div class="stat-info">
-                <span class="stat-value" x-text="tasks.length">0</span>
-                <span class="stat-label">Toplam</span>
-            </div>
-        </div>
-
-        <div class="stat-card stat-active">
-            <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <polyline points="12 6 12 12 16 14"/>
-                </svg>
-            </div>
-            <div class="stat-info">
-                <span class="stat-value" x-text="activeCount">0</span>
-                <span class="stat-label">Aktif</span>
-            </div>
-        </div>
-
-        <div class="stat-card stat-completed">
-            <div class="stat-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                </svg>
-            </div>
-            <div class="stat-info">
-                <span class="stat-value" x-text="completedCount">0</span>
-                <span class="stat-label">Tamamlandı</span>
-            </div>
-        </div>
-
-        <div class="stat-card stat-progress">
-            <div class="progress-wrap">
-                <div class="progress-row">
-                    <div class="progress-pct">
-                        <span x-text="Math.round(completionRate)">0</span><small>%</small>
-                    </div>
-                    <div style="flex:1;text-align:right;">
-                        <span class="progress-label">Tamamlanma</span>
-                    </div>
-                </div>
-                <div class="bar-track" style="height:6px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
-                    <div :style="'width:'+completionRate+'%;'" style="height:100%;border-radius:3px;background:linear-gradient(90deg,#818cf8,#c084fc);transition:width 0.6s ease;"></div>
-                </div>
-            </div>
+        <div class="nav-actions">
+            <div class="live-badge"><span class="live-dot"></span> Live</div>
+            <button @click="logout()" class="nav-btn">Çıkış</button>
         </div>
     </div>
+</nav>
 
-    <div class="progress-bar-section" x-show="tasks.length > 0">
+<main class="main">
+
+    <section class="stats-row">
+        <div class="scard" @click="filter='all';searchQuery=''" :class="{'scard-active': filter==='all' && !searchQuery}">
+            <div class="scard-val" x-text="tasks.length">0</div>
+            <div class="scard-lbl">Toplam</div>
+        </div>
+        <div class="scard" @click="filter='active'" :class="{'scard-active': filter==='active'}">
+            <div class="scard-val scard-active-val" x-text="activeCount">0</div>
+            <div class="scard-lbl">Aktif</div>
+        </div>
+        <div class="scard" @click="filter='in_progress'" :class="{'scard-active': filter==='in_progress'}">
+            <div class="scard-val scard-progress-val" x-text="inProgressCount">0</div>
+            <div class="scard-lbl">Devam</div>
+        </div>
+        <div class="scard" @click="filter='completed'" :class="{'scard-active': filter==='completed'}">
+            <div class="scard-val scard-done-val" x-text="completedCount">0</div>
+            <div class="scard-lbl">Bitti</div>
+        </div>
+        <div class="scard scard-pct" :class="{'scard-active': false}">
+            <div class="scard-pct-ring">
+                <svg viewBox="0 0 36 36" class="pct-svg">
+                    <circle class="pct-bg" cx="18" cy="18" r="15.9"/>
+                    <circle class="pct-fg" cx="18" cy="18" r="15.9"
+                        :style="'stroke-dasharray: ' + completionRate + ' ' + (100 - completionRate) + '; stroke-dashoffset: 25'"/>
+                </svg>
+                <span class="pct-num" x-text="Math.round(completionRate)">0<sup>%</sup></span>
+            </div>
+            <div class="scard-lbl">Tamamlanma</div>
+        </div>
+    </section>
+
+    <section class="progress-section" x-show="tasks.length > 0" x-transition>
         <div class="bar-row">
             <div class="bar-item">
-                <div class="bar-item-label">
-                    <span>Aktif</span>
-                    <span x-text="activeCount">0</span>
-                </div>
-                <div class="bar-track">
-                    <div class="bar-fill active-bar" :style="'width:' + (tasks.length ? (activeCount/tasks.length*100) : 0) + '%'"></div>
-                </div>
+                <div class="bar-head"><span>Aktif</span><span x-text="activeCount">0</span></div>
+                <div class="bar-track"><div class="bar-fill bar-fill-active" :style="'width:'+(tasks.length?activeCount/tasks.length*100:0)+'%'"></div></div>
             </div>
             <div class="bar-item">
-                <div class="bar-item-label">
-                    <span>Tamamlanan</span>
-                    <span x-text="completedCount">0</span>
-                </div>
-                <div class="bar-track">
-                    <div class="bar-fill completed-bar" :style="'width:' + (tasks.length ? (completedCount/tasks.length*100) : 0) + '%'"></div>
-                </div>
+                <div class="bar-head"><span>Devam</span><span x-text="inProgressCount">0</span></div>
+                <div class="bar-track"><div class="bar-fill bar-fill-progress" :style="'width:'+(tasks.length?inProgressCount/tasks.length*100:0)+'%'"></div></div>
+            </div>
+            <div class="bar-item">
+                <div class="bar-head"><span>Bitti</span><span x-text="completedCount">0</span></div>
+                <div class="bar-track"><div class="bar-fill bar-fill-done" :style="'width:'+(tasks.length?completedCount/tasks.length*100:0)+'%'"></div></div>
             </div>
         </div>
-    </div>
+    </section>
 
-    <div class="content-area">
+    <section class="tasks-section">
         <div class="toolbar">
-            <div class="filter-tabs">
-                <button @click="filter='all'" :class="{'active':filter==='all'}">Tümü</button>
-                <button @click="filter='active'" :class="{'active':filter==='active'}">Aktif</button>
-                <button @click="filter='completed'" :class="{'active':filter==='completed'}">Tamamlanan</button>
+            <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" x-model="searchQuery" class="search-input" placeholder="Ara...">
+                <button x-show="searchQuery" @click="searchQuery=''" class="search-clear">&times;</button>
             </div>
-            <button @click="showAddModal=true" class="btn-add">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-                Yeni Task
-            </button>
+            <div class="toolbar-actions">
+                <select x-model="sortField" class="sort-select">
+                    <option value="createdAt">En yeni</option>
+                    <option value="priority">Öncelik</option>
+                    <option value="dueDate">Bitiş tarihi</option>
+                </select>
+                <button @click="showAddModal=true" class="add-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Yeni
+                </button>
+            </div>
+        </div>
+
+        <div class="cat-chips" x-show="categories.length > 0">
+            <button @click="selectedCategory = selectedCategory === null ? '' : null" class="chip" :class="{'chip-active': selectedCategory === null}">Tümü</button>
+            <template x-for="cat in categories" :key="cat">
+                <button @click="selectedCategory = selectedCategory === cat ? null : cat" class="chip" :class="{'chip-active': selectedCategory === cat}" x-text="cat"></button>
+            </template>
         </div>
 
         <div class="task-list">
-            <template x-for="task in filteredTasks" :key="task.id">
-                <div class="task-card" :class="'priority-'+task.priority" x-transition>
-                    <div class="task-left">
-                        <button @click="toggleComplete(task)" class="check-btn" :class="{'checked':task.status==='completed'}">
-                            <svg x-show="task.status==='completed'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                                <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="task-body">
-                        <div class="task-main">
-                            <h3 :class="{'completed-text':task.status==='completed'}" x-text="task.title"></h3>
-                            <p x-show="task.description" x-text="task.description" class="task-desc"></p>
+            <template x-for="task in sortedTasks" :key="task.id">
+                <div class="tcard" :class="{'tcard-done': task.status==='completed', 'tcard-cancel': task.status==='cancelled', 'tcard-overdue': task.dueDate && task.dueDate < Date.now() && task.status!=='completed' && task.status!=='cancelled'}" @click="openDetail(task)">
+                    <button @click.stop="toggleComplete(task)" class="tcheck" :class="{'tcheck-on': task.status==='completed', 'tcheck-wip': task.status==='in_progress'}">
+                        <svg x-show="task.status==='completed'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <svg x-show="task.status==='in_progress'" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>
+                    </button>
+                    <div class="tcard-body">
+                        <div class="tcard-top">
+                            <span class="tcard-title" :class="{'tcard-title-done': task.status==='completed'}" x-text="task.title"></span>
+                            <span class="tcard-badge" :class="'pri-'+task.priority" x-text="task.priority === 'critical' ? 'kritik' : task.priority === 'high' ? 'yüksek' : task.priority === 'medium' ? 'normal' : 'düşük'"></span>
                         </div>
-                        <div class="task-meta">
-                            <span class="badge" :class="'source-'+task.source" x-text="task.source"></span>
-                            <span class="badge" :class="'priority-badge-'+task.priority" x-text="task.priority"></span>
-                            <span class="task-time" x-text="formatDate(task.createdAt)"></span>
+                        <p x-show="task.description" x-text="task.description" class="tcard-desc" x-transition></p>
+                        <div class="tcard-meta">
+                            <span x-show="task.category" class="tcard-cat" x-text="task.category"></span>
+                            <template x-for="tag in task.tags" :key="tag">
+                                <span class="tcard-tag" x-text="tag"></span>
+                            </template>
+                            <span x-show="task.dueDate" class="tcard-due" :class="{'tcard-due-overdue': task.dueDate && task.dueDate < Date.now() && task.status!=='completed' && task.status!=='cancelled'}" x-text="formatDue(task.dueDate)"></span>
+                            <span class="tcard-time" x-text="formatDate(task.createdAt)"></span>
                         </div>
                     </div>
-                    <div class="task-actions">
-                        <button @click="deleteTask(task.id)" class="btn-delete" title="Sil">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                        </button>
+                    <div class="tcard-status-col">
+                        <span class="status-dot" :class="'sd-'+task.status"></span>
                     </div>
                 </div>
             </template>
-            <div x-show="filteredTasks.length===0" class="empty-state">
-                <div class="empty-icon">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M9 11l3 3L22 4"/>
-                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                    </svg>
-                </div>
+            <div x-show="sortedTasks.length===0" class="empty" x-transition>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="opacity:0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 11l3 3L22 4"/></svg>
                 <p>Task bulunamadı</p>
             </div>
         </div>
-    </div>
+    </section>
+</main>
 
-    <div x-show="showAddModal" class="modal-overlay" @click.self="showAddModal=false" x-transition>
-        <div class="modal" x-transition>
-            <div class="modal-header">
-                <h2>Yeni Task Ekle</h2>
-                <button @click="showAddModal=false" class="modal-close">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
+<div x-show="showAddModal" class="overlay" @click.self="showAddModal=false" x-transition.opacity>
+    <div class="modal" x-transition>
+        <div class="modal-head">
+            <h2>Yeni Task</h2>
+            <button @click="showAddModal=false" class="modal-x">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <label class="field">
+                <span class="field-label">Başlık</span>
+                <input type="text" x-model="newTask.title" class="field-input" placeholder="Task başlığı..." @keydown.enter="addTask()">
+            </label>
+            <label class="field">
+                <span class="field-label">Açıklama</span>
+                <textarea x-model="newTask.description" class="field-input" placeholder="Opsiyonel..." rows="2"></textarea>
+            </label>
+            <div class="field-row">
+                <label class="field half">
+                    <span class="field-label">Kategori</span>
+                    <input type="text" x-model="newTask.category" class="field-input" placeholder="Proje adı...">
+                </label>
+                <label class="field half">
+                    <span class="field-label">Bitiş tarihi</span>
+                    <input type="date" x-model="newTask.dueDate" class="field-input">
+                </label>
             </div>
-            <div class="modal-body">
-                <input type="text" x-model="newTask.title" class="input" placeholder="Task başlığı..." @keydown.enter="addTask()">
-                <textarea x-model="newTask.description" class="input" placeholder="Açıklama (opsiyonel)" rows="3"></textarea>
-                <select x-model="newTask.priority" class="input">
-                    <option value="low">Düşük öncelik</option>
-                    <option value="medium" selected>Normal öncelik</option>
-                    <option value="high">Yüksek öncelik</option>
-                    <option value="critical">Kritik</option>
-                </select>
-            </div>
-            <div class="modal-footer">
-                <button @click="showAddModal=false" class="btn-cancel">İptal</button>
-                <button @click="addTask()" class="btn-submit">Ekle</button>
-            </div>
+            <label class="field">
+                <span class="field-label">Etiketler</span>
+                <input type="text" x-model="newTask.tagsInput" class="field-input" placeholder="Virgülle ayır: tasarım, bug">
+            </label>
+            <label class="field">
+                <span class="field-label">Öncelik</span>
+                <div class="priority-picker">
+                    <button @click="newTask.priority='low'" :class="{'pp-active': newTask.priority==='low'}" class="pp pp-low">Düşük</button>
+                    <button @click="newTask.priority='medium'" :class="{'pp-active': newTask.priority==='medium'}" class="pp pp-med">Normal</button>
+                    <button @click="newTask.priority='high'" :class="{'pp-active': newTask.priority==='high'}" class="pp pp-high">Yüksek</button>
+                    <button @click="newTask.priority='critical'" :class="{'pp-active': newTask.priority==='critical'}" class="pp pp-crit">Kritik</button>
+                </div>
+            </label>
+        </div>
+        <div class="modal-foot">
+            <button @click="showAddModal=false" class="btn-sec">İptal</button>
+            <button @click="addTask()" class="btn-pri">Ekle</button>
         </div>
     </div>
+</div>
+
+<div x-show="showDetailModal && detailTask" class="overlay" @click.self="closeDetail()" x-transition.opacity>
+    <div class="modal modal-detail" x-transition>
+        <template x-if="detailTask">
+            <div>
+                <div class="modal-head">
+                    <h2 x-text="detailTask?.title || ''">Task Detayı</h2>
+                    <button @click="closeDetail()" class="modal-x">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-row">
+                        <span class="detail-label">Durum</span>
+                        <div class="status-picker">
+                            <button @click="changeStatus('active')" :class="{'sp-active': detailTask?.status==='active'}" class="sp sp-active-status">Aktif</button>
+                            <button @click="changeStatus('in_progress')" :class="{'sp-active': detailTask?.status==='in_progress'}" class="sp sp-wip-status">Devam</button>
+                            <button @click="changeStatus('completed')" :class="{'sp-active': detailTask?.status==='completed'}" class="sp sp-done-status">Bitti</button>
+                            <button @click="changeStatus('cancelled')" :class="{'sp-active': detailTask?.status==='cancelled'}" class="sp sp-cancel-status">İptal</button>
+                        </div>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Öncelik</span>
+                        <div class="priority-picker">
+                            <button @click="changePriority('low')" :class="{'pp-active': detailTask?.priority==='low'}" class="pp pp-low">Düşük</button>
+                            <button @click="changePriority('medium')" :class="{'pp-active': detailTask?.priority==='medium'}" class="pp pp-med">Normal</button>
+                            <button @click="changePriority('high')" :class="{'pp-active': detailTask?.priority==='high'}" class="pp pp-high">Yüksek</button>
+                            <button @click="changePriority('critical')" :class="{'pp-active': detailTask?.priority==='critical'}" class="pp pp-crit">Kritik</button>
+                        </div>
+                    </div>
+                    <label class="field">
+                        <span class="field-label">Başlık</span>
+                        <input type="text" x-model="editTask.title" class="field-input">
+                    </label>
+                    <label class="field">
+                        <span class="field-label">Açıklama</span>
+                        <textarea x-model="editTask.description" class="field-input" rows="2"></textarea>
+                    </label>
+                    <div class="field-row">
+                        <label class="field half">
+                            <span class="field-label">Kategori</span>
+                            <input type="text" x-model="editTask.category" class="field-input" placeholder="Proje adı">
+                        </label>
+                        <label class="field half">
+                            <span class="field-label">Bitiş tarihi</span>
+                            <input type="date" x-model="editTask.dueDate" class="field-input">
+                        </label>
+                    </div>
+                    <label class="field">
+                        <span class="field-label">Etiketler</span>
+                        <input type="text" x-model="editTask.tagsInput" class="field-input" placeholder="Virgülle ayır: tasarım, bug">
+                    </label>
+                </div>
+                <div class="modal-foot">
+                    <button @click="deleteCurrentTask()" class="btn-danger">Sil</button>
+                    <div style="flex:1"></div>
+                    <button @click="closeDetail()" class="btn-sec">İptal</button>
+                    <button @click="saveDetail()" class="btn-pri">Kaydet</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
 </div>
 
 <script>
@@ -212,27 +256,45 @@ function taskApp() {
     return {
         tasks: [],
         filter: 'all',
+        searchQuery: '',
+        sortField: 'createdAt',
+        selectedCategory: null,
         showAddModal: false,
+        showDetailModal: false,
+        detailTask: null,
+        editTask: { title:'', description:'', category:'', dueDate:'', tagsInput:'' },
         refreshTimer: null,
-        newTask: { title: '', description: '', priority: 'medium' },
+        newTask: { title:'', description:'', priority:'medium', category:'', dueDate:'', tagsInput:'' },
 
-        get activeCount() {
-            return this.tasks.filter(t => t.status === 'active').length;
+        get activeCount() { return this.tasks.filter(t => t.status === 'active').length; },
+        get inProgressCount() { return this.tasks.filter(t => t.status === 'in_progress').length; },
+        get completedCount() { return this.tasks.filter(t => t.status === 'completed').length; },
+        get completionRate() { return this.tasks.length === 0 ? 0 : (this.completedCount / this.tasks.length) * 100; },
+
+        get categories() {
+            const cats = new Set();
+            this.tasks.forEach(t => { if (t.category) cats.add(t.category); });
+            return [...cats].sort();
         },
 
-        get completedCount() {
-            return this.tasks.filter(t => t.status === 'completed').length;
-        },
-
-        get completionRate() {
-            if (this.tasks.length === 0) return 0;
-            return (this.completedCount / this.tasks.length) * 100;
-        },
-
-        get filteredTasks() {
-            if (this.filter === 'active') return this.tasks.filter(t => t.status === 'active');
-            if (this.filter === 'completed') return this.tasks.filter(t => t.status === 'completed');
-            return this.tasks;
+        get sortedTasks() {
+            let result = [...this.tasks];
+            if (this.filter !== 'all') result = result.filter(t => t.status === this.filter);
+            if (this.selectedCategory) result = result.filter(t => t.category === this.selectedCategory);
+            if (this.searchQuery) {
+                const q = this.searchQuery.toLowerCase();
+                result = result.filter(t =>
+                    t.title.toLowerCase().includes(q) ||
+                    (t.description && t.description.toLowerCase().includes(q)) ||
+                    (t.category && t.category.toLowerCase().includes(q)) ||
+                    t.tags.some(tag => tag.toLowerCase().includes(q))
+                );
+            }
+            const prio = { critical: 0, high: 1, medium: 2, low: 3 };
+            if (this.sortField === 'priority') result.sort((a,b) => (prio[a.priority]||2) - (prio[b.priority]||2));
+            else if (this.sortField === 'dueDate') result.sort((a,b) => (a.dueDate||Infinity) - (b.dueDate||Infinity));
+            else result.sort((a,b) => b.createdAt - a.createdAt);
+            return result;
         },
 
         async init() {
@@ -242,9 +304,7 @@ function taskApp() {
             this.refreshTimer = setInterval(() => this.fetchTasks(), 15000);
         },
 
-        headers() {
-            return { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' };
-        },
+        headers() { return { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' }; },
 
         async fetchTasks() {
             try {
@@ -256,44 +316,100 @@ function taskApp() {
 
         async addTask() {
             if (!this.newTask.title.trim()) return;
+            const tags = this.newTask.tagsInput ? this.newTask.tagsInput.split(',').map(s=>s.trim()).filter(Boolean) : [];
             await fetch('/api/tasks', {
-                method: 'POST',
-                headers: this.headers(),
-                body: JSON.stringify({ ...this.newTask, source: 'web' })
+                method: 'POST', headers: this.headers(),
+                body: JSON.stringify({
+                    title: this.newTask.title, description: this.newTask.description || null,
+                    priority: this.newTask.priority, source: 'web', category: this.newTask.category || null,
+                    dueDate: this.newTask.dueDate ? new Date(this.newTask.dueDate).getTime() : null, tags
+                })
             });
-            this.newTask = { title: '', description: '', priority: 'medium' };
+            this.newTask = { title:'', description:'', priority:'medium', category:'', dueDate:'', tagsInput:'' };
             this.showAddModal = false;
             await this.fetchTasks();
         },
 
         async toggleComplete(task) {
-            const newStatus = task.status === 'completed' ? 'active' : 'completed';
-            await fetch('/api/tasks/' + task.id, {
-                method: 'PATCH',
-                headers: this.headers(),
-                body: JSON.stringify({ status: newStatus })
-            });
+            const ns = task.status === 'completed' ? 'active' : 'completed';
+            await fetch('/api/tasks/' + task.id, { method:'PATCH', headers:this.headers(), body:JSON.stringify({status:ns}) });
             await this.fetchTasks();
         },
 
-        async deleteTask(id) {
-            await fetch('/api/tasks/' + id, { method: 'DELETE', headers: this.headers() });
+        openDetail(task) {
+            this.detailTask = task;
+            this.editTask = {
+                title: task.title, description: task.description || '',
+                category: task.category || '', dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+                tagsInput: task.tags.join(', ')
+            };
+            this.showDetailModal = true;
+        },
+
+        closeDetail() { this.showDetailModal = false; this.detailTask = null; },
+
+        async changeStatus(s) {
+            if (!this.detailTask) return;
+            const body = { status: s };
+            if (s === 'completed') body.completedAt = Date.now();
+            else body.completedAt = null;
+            await fetch('/api/tasks/' + this.detailTask.id, { method:'PATCH', headers:this.headers(), body:JSON.stringify(body) });
             await this.fetchTasks();
+            this.detailTask = this.tasks.find(t => t.id === this.detailTask.id) || null;
+        },
+
+        async changePriority(p) {
+            if (!this.detailTask) return;
+            await fetch('/api/tasks/' + this.detailTask.id, { method:'PATCH', headers:this.headers(), body:JSON.stringify({priority:p}) });
+            await this.fetchTasks();
+            this.detailTask = this.tasks.find(t => t.id === this.detailTask.id) || null;
+        },
+
+        async saveDetail() {
+            if (!this.detailTask) return;
+            const tags = this.editTask.tagsInput ? this.editTask.tagsInput.split(',').map(s=>s.trim()).filter(Boolean) : [];
+            await fetch('/api/tasks/' + this.detailTask.id, {
+                method:'PATCH', headers:this.headers(),
+                body:JSON.stringify({
+                    title: this.editTask.title, description: this.editTask.description || null,
+                    category: this.editTask.category || null,
+                    dueDate: this.editTask.dueDate ? new Date(this.editTask.dueDate).getTime() : null, tags
+                })
+            });
+            this.showDetailModal = false; this.detailTask = null;
+            await this.fetchTasks();
+        },
+
+        async deleteCurrentTask() {
+            if (!this.detailTask) return;
+            if (!confirm('Bu task\'ı silmek istediğine emin misin?')) return;
+            await fetch('/api/tasks/' + this.detailTask.id, { method:'DELETE', headers:this.headers() });
+            this.showDetailModal = false; this.detailTask = null;
+            await this.fetchTasks();
+        },
+
+        formatDue(ts) {
+            if (!ts) return '';
+            const d = new Date(ts);
+            const now = new Date();
+            const diff = d.setHours(0,0,0,0) - now.setHours(0,0,0,0);
+            const days = Math.ceil(diff / 86400000);
+            if (days < 0) return Math.abs(days) + ' gün gecikmiş';
+            if (days === 0) return 'Bugün';
+            if (days === 1) return 'Yarın';
+            if (days < 7) return days + ' gün sonra';
+            return d.toLocaleDateString('tr-TR', { day:'2-digit', month:'short' });
         },
 
         formatDate(ts) {
-            const d = new Date(ts);
-            const diff = Date.now() - d;
-            if (diff < 60000) return 'az önce';
-            if (diff < 3600000) return Math.floor(diff / 60000) + ' dk önce';
-            if (diff < 86400000) return Math.floor(diff / 3600000) + ' saat önce';
-            return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+            const d = Date.now() - new Date(ts);
+            if (d < 60000) return 'az önce';
+            if (d < 3600000) return Math.floor(d/60000) + ' dk önce';
+            if (d < 86400000) return Math.floor(d/3600000) + ' saat önce';
+            return new Date(ts).toLocaleDateString('tr-TR', { day:'2-digit', month:'short' });
         },
 
-        logout() {
-            localStorage.removeItem('token');
-            location.href = '/login';
-        }
+        logout() { localStorage.removeItem('token'); location.href = '/login'; }
     };
 }
 </script>
