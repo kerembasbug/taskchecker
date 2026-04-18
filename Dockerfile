@@ -20,4 +20,7 @@ ENV DATABASE_PATH=/app/data
 
 EXPOSE 3000
 
-CMD ["node", "dist/server.js"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+CMD ["/bin/sh", "/app/start.sh"]
