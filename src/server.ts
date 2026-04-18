@@ -6,105 +6,84 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-console.log("[TC] Step 1: Base imports OK");
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.resolve(__dirname, "..", "public");
-
-// Import DB (with top-level await)
-console.log("[TC] Step 2: About to import DB...");
-const { db, saveDb } = await import("./db/index.js");
-console.log("[TC] Step 3: DB imported OK");
-
-import { tasks } from "./db/schema.js";
-import { eq, desc } from "drizzle-orm";
-console.log("[TC] Step 4: Schema imported OK");
-
-import { login } from "./api/auth.js";
-console.log("[TC] Step 5: Auth imported OK");
-
 const app = new Hono();
-console.log("[TC] Step 6: App created");
+const publicDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
 
-// Serve static files
+app.get("/health", (c) => c.json({ status: "ok", time: new Date().toISOString() }));
+
 app.get("/", (c) => {
   try {
-    const filePath = path.join(publicDir, "index.html");
-    const html = fs.readFileSync(filePath, "utf-8");
-    return c.html(html);
-  } catch (e) {
-    return c.text("Error reading index.html: " + (e as Error).message, 500);
-  }
+    return c.html(fs.readFileSync(path.join(publicDir, "index.html"), "utf-8"));
+  } catch { return c.text("Index not found", 500); }
 });
 
 app.get("/login", (c) => {
   try {
-    const filePath = path.join(publicDir, "login.html");
-    const html = fs.readFileSync(filePath, "utf-8");
-    return c.html(html);
-  } catch (e) {
-    return c.text("Error reading login.html: " + (e as Error).message, 500);
-  }
+    return c.html(fs.readFileSync(path.join(publicDir, "login.html"), "utf-8"));
+  } catch { return c.text("Login not found", 500); }
 });
 
-app.get("/health", (c) => c.json({ status: "ok", time: new Date().toISOString() }));
+// Lazy initialization
+let initialized = false;
+const init = async () => {
+  if (initialized) return;
+  console.log("[TC] Initializing DB and routes...");
 
-app.post("/api/auth/login", async (c) => {
-  const { password } = await c.req.json();
-  const token = await login(password);
-  if (!token) return c.json({ error: "Invalid password" }, 401);
-  return c.json({ token });
-});
+  const { db, saveDb } = await import("./db/index.js");
+  const { tasks } = await import("./db/schema.js");
+  const { eq, desc } = await import("drizzle-orm");
+  const { login } = await import("./api/auth.js");
+  const { setupMcpRoutes } = await import("./mcp/server.js");
 
-app.get("/api/tasks", async (c) => {
-  const statusFilter = c.req.query("status") || "all";
-  let result;
-  if (statusFilter === "active") result = await db.select().from(tasks).where(eq(tasks.status, "active")).orderBy(desc(tasks.createdAt));
-  else if (statusFilter === "completed") result = await db.select().from(tasks).where(eq(tasks.status, "completed")).orderBy(desc(tasks.createdAt));
-  else result = await db.select().from(tasks).orderBy(desc(tasks.createdAt));
-  return c.json(result);
-});
+  app.post("/api/auth/login", async (c) => {
+    const { password } = await c.req.json();
+    const token = await login(password);
+    if (!token) return c.json({ error: "Invalid password" }, 401);
+    return c.json({ token });
+  });
 
-app.post("/api/tasks", async (c) => {
-  const body = await c.req.json();
-  const id = crypto.randomUUID();
-  const now = new Date();
-  const newTask = { id, title: body.title, description: body.description || null, priority: body.priority || "medium", source: body.source || "api", status: "active" as const, createdAt: now, updatedAt: now };
-  await db.insert(tasks).values(newTask);
-  saveDb();
-  return c.json(newTask, 201);
-});
+  app.get("/api/tasks", async (c) => {
+    const s = c.req.query("status") || "all";
+    let r;
+    if (s === "active") r = await db.select().from(tasks).where(eq(tasks.status, "active")).orderBy(desc(tasks.createdAt));
+    else if (s === "completed") r = await db.select().from(tasks).where(eq(tasks.status, "completed")).orderBy(desc(tasks.createdAt));
+    else r = await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+    return c.json(r);
+  });
 
-app.patch("/api/tasks/:id", async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json();
-  const now = new Date();
-  const updates: Record<string, unknown> = { updatedAt: now };
-  if (body.title !== undefined) updates.title = body.title;
-  if (body.description !== undefined) updates.description = body.description;
-  if (body.priority !== undefined) updates.priority = body.priority;
-  if (body.status !== undefined) { updates.status = body.status; if (body.status === "completed") updates.completedAt = now; }
-  await db.update(tasks).set(updates).where(eq(tasks.id, id));
-  saveDb();
-  const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
-  return c.json(updated);
-});
+  app.post("/api/tasks", async (c) => {
+    const b = await c.req.json();
+    const id = crypto.randomUUID(), now = new Date();
+    const t = { id, title: b.title, description: b.description || null, priority: b.priority || "medium", source: b.source || "api", status: "active" as const, createdAt: now, updatedAt: now };
+    await db.insert(tasks).values(t); saveDb();
+    return c.json(t, 201);
+  });
 
-app.delete("/api/tasks/:id", async (c) => {
-  const id = c.req.param("id");
-  await db.delete(tasks).where(eq(tasks.id, id));
-  saveDb();
-  return c.json({ ok: true });
-});
+  app.patch("/api/tasks/:id", async (c) => {
+    const id = c.req.param("id"), b = await c.req.json(), now = new Date();
+    const u: Record<string, unknown> = { updatedAt: now };
+    if (b.title !== undefined) u.title = b.title;
+    if (b.description !== undefined) u.description = b.description;
+    if (b.priority !== undefined) u.priority = b.priority;
+    if (b.status !== undefined) { u.status = b.status; if (b.status === "completed") u.completedAt = now; }
+    await db.update(tasks).set(u).where(eq(tasks.id, id)); saveDb();
+    const [updated] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return c.json(updated);
+  });
 
-// MCP routes (lazy)
-console.log("[TC] Step 7: About to import MCP...");
-const { setupMcpRoutes } = await import("./mcp/server.js");
-setupMcpRoutes(app);
-console.log("[TC] Step 8: MCP routes set up");
+  app.delete("/api/tasks/:id", async (c) => {
+    await db.delete(tasks).where(eq(tasks.id, c.req.param("id"))); saveDb();
+    return c.json({ ok: true });
+  });
 
-// WebSocket (without injectWebSocket to avoid crash)
-console.log("[TC] Step 9: Skipping WebSocket for now");
+  setupMcpRoutes(app);
+  initialized = true;
+  console.log("[TC] Initialization complete!");
+};
+
+// Initialize on first API request
+app.use("/api/*", async (c, next) => { if (!initialized) await init(); return next(); });
+app.use("/mcp/*", async (c, next) => { if (!initialized) await init(); return next(); });
 
 const port = Number(process.env.PORT) || 3000;
 serve({ fetch: app.fetch, port });
