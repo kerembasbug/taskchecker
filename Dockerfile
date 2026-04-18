@@ -22,4 +22,4 @@ ENV DATABASE_PATH=/app/data
 
 EXPOSE 3000
 
-CMD ["node", "--trace-warnings", "--experimental-vm-modules", "dist/server.js"]
+CMD ["node", "--trace-warnings", "dist/server.js"]
