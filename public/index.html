@@ -35,6 +35,27 @@
         <button @click="filter='active';sortField='dueDate'" class="overdue-link">Göster</button>
     </div>
 
+    <section class="hero-card">
+        <div>
+            <p class="hero-kicker">Today</p>
+            <h1 class="hero-title">Takibini kaybetmeden ilerle.</h1>
+            <p class="hero-copy">Kategori, etiket, bitiş tarihi ve durum akışı ile işleri düzenli tut.</p>
+        </div>
+        <div class="hero-progress">
+            <div class="hero-progress-head">
+                <span>Tamamlanma</span>
+                <strong><span x-text="Math.round(completionRate)">0</span>%</strong>
+            </div>
+            <div class="hero-progress-track">
+                <div class="hero-progress-fill" :style="'width:' + completionRate + '%' "></div>
+            </div>
+            <div class="hero-progress-meta">
+                <span><span x-text="completedCount">0</span> bitti</span>
+                <span><span x-text="overdueCount">0</span> gecikmiş</span>
+            </div>
+        </div>
+    </section>
+
     <section class="stats-row">
         <div class="scard" @click="filter='all';searchQuery=''" :class="{'scard-active': filter==='all' && !searchQuery}">
             <div class="scard-val" x-text="tasks.length">0</div>
@@ -51,23 +72,6 @@
         <div class="scard" @click="filter='completed'" :class="{'scard-active': filter==='completed'}">
             <div class="scard-val scard-done-val" x-text="completedCount">0</div>
             <div class="scard-lbl">Bitti</div>
-        </div>
-        <div class="scard scard-pct" :class="{'scard-active': false}">
-            <div class="scard-pct-ring">
-                <svg viewBox="0 0 36 36" class="pct-svg">
-                    <defs>
-                        <linearGradient id="pctGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stop-color="#0a84ff"/>
-                            <stop offset="100%" stop-color="#30d158"/>
-                        </linearGradient>
-                    </defs>
-                    <circle class="pct-bg" cx="18" cy="18" r="15.9"/>
-                    <circle class="pct-fg" cx="18" cy="18" r="15.9"
-                        :style="'stroke-dasharray: ' + completionRate + ' ' + (100 - completionRate) + '; stroke-dashoffset: 25'"/>
-                </svg>
-                <span class="pct-num"><span x-text="Math.round(completionRate)">0</span><sup>%</sup></span>
-            </div>
-            <div class="scard-lbl">Tamamlanma</div>
         </div>
     </section>
 
@@ -124,7 +128,7 @@
 
             <div class="task-list">
             <template x-for="task in sortedTasks" :key="task.id">
-                <div class="tcard" :class="{'tcard-done': task.status==='completed', 'tcard-cancel': task.status==='cancelled', 'tcard-overdue': task.dueDate && task.dueDate < Date.now() && task.status!=='completed' && task.status!=='cancelled'}" @click="openDetail(task)">
+                <div class="tcard" :class="{'tcard-done': task.status==='completed', 'tcard-cancel': task.status==='cancelled', 'tcard-overdue': isOverdue(task)}" @click="openDetail(task)">
                     <button @click.stop="toggleComplete(task)" class="tcheck" :class="{'tcheck-on': task.status==='completed', 'tcheck-wip': task.status==='in_progress'}">
                         <svg x-show="task.status==='completed'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                         <svg x-show="task.status==='in_progress'" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>
@@ -140,7 +144,7 @@
                             <template x-for="tag in task.tags" :key="tag">
                                 <span class="tcard-tag" x-text="tag"></span>
                             </template>
-                            <span x-show="task.dueDate" class="tcard-due" :class="{'tcard-due-overdue': task.dueDate && task.dueDate < Date.now() && task.status!=='completed' && task.status!=='cancelled'}" x-text="formatDue(task.dueDate)"></span>
+                            <span x-show="task.dueDate" class="tcard-due" :class="{'tcard-due-overdue': isOverdue(task)}" x-text="formatDue(task.dueDate)"></span>
                             <span class="tcard-time" x-text="formatDate(task.createdAt)"></span>
                         </div>
                     </div>
@@ -283,12 +287,14 @@ function taskApp() {
         detailTask: null,
         editTask: { title:'', description:'', category:'', dueDate:'', tagsInput:'' },
         refreshTimer: null,
+        clockTimer: null,
+        nowTs: Date.now(),
         newTask: { title:'', description:'', priority:'medium', category:'', dueDate:'', tagsInput:'' },
 
         get activeCount() { return this.tasks.filter(t => t.status === 'active').length; },
         get inProgressCount() { return this.tasks.filter(t => t.status === 'in_progress').length; },
         get completedCount() { return this.tasks.filter(t => t.status === 'completed').length; },
-        get overdueCount() { return this.tasks.filter(t => t.dueDate && t.dueDate < Date.now() && t.status !== 'completed' && t.status !== 'cancelled').length; },
+        get overdueCount() { return this.tasks.filter(t => this.isOverdue(t)).length; },
         get completionRate() { return this.tasks.length === 0 ? 0 : (this.completedCount / this.tasks.length) * 100; },
 
         get categories() {
@@ -322,6 +328,7 @@ function taskApp() {
             if (!token) { location.href = '/login'; return; }
             await this.fetchTasks();
             this.refreshTimer = setInterval(() => this.fetchTasks(), 15000);
+            this.clockTimer = setInterval(() => this.nowTs = Date.now(), 60000);
         },
 
         headers() { return { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' }; },
@@ -427,6 +434,10 @@ function taskApp() {
             if (d < 3600000) return Math.floor(d/60000) + ' dk önce';
             if (d < 86400000) return Math.floor(d/3600000) + ' saat önce';
             return new Date(ts).toLocaleDateString('tr-TR', { day:'2-digit', month:'short' });
+        },
+
+        isOverdue(task) {
+            return Boolean(task.dueDate && task.dueDate < this.nowTs && task.status !== 'completed' && task.status !== 'cancelled');
         },
 
         logout() { localStorage.removeItem('token'); location.href = '/login'; },
