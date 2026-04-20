@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<div class="app" x-data="taskApp()" x-init="init()">
+<div class="app" x-data="taskApp()" x-init="init()" @keydown.window="handleKey($event)">
 
 <nav class="nav">
     <div class="nav-inner">
@@ -28,6 +28,12 @@
 </nav>
 
 <main class="main">
+
+    <div class="overdue-banner" x-show="overdueCount > 0" x-transition>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span><b x-text="overdueCount">0</b> gecikmiş task var</span>
+        <button @click="filter='active';sortField='dueDate'" class="overdue-link">Göster</button>
+    </div>
 
     <section class="stats-row">
         <div class="scard" @click="filter='all';searchQuery=''" :class="{'scard-active': filter==='all' && !searchQuery}">
@@ -49,11 +55,17 @@
         <div class="scard scard-pct" :class="{'scard-active': false}">
             <div class="scard-pct-ring">
                 <svg viewBox="0 0 36 36" class="pct-svg">
+                    <defs>
+                        <linearGradient id="pctGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#0a84ff"/>
+                            <stop offset="100%" stop-color="#30d158"/>
+                        </linearGradient>
+                    </defs>
                     <circle class="pct-bg" cx="18" cy="18" r="15.9"/>
                     <circle class="pct-fg" cx="18" cy="18" r="15.9"
                         :style="'stroke-dasharray: ' + completionRate + ' ' + (100 - completionRate) + '; stroke-dashoffset: 25'"/>
                 </svg>
-                <span class="pct-num" x-text="Math.round(completionRate)">0<sup>%</sup></span>
+                <span class="pct-num"><span x-text="Math.round(completionRate)">0</span><sup>%</sup></span>
             </div>
             <div class="scard-lbl">Tamamlanma</div>
         </div>
@@ -96,14 +108,21 @@
             </div>
         </div>
 
-        <div class="cat-chips" x-show="categories.length > 0">
-            <button @click="selectedCategory = selectedCategory === null ? '' : null" class="chip" :class="{'chip-active': selectedCategory === null}">Tümü</button>
-            <template x-for="cat in categories" :key="cat">
-                <button @click="selectedCategory = selectedCategory === cat ? null : cat" class="chip" :class="{'chip-active': selectedCategory === cat}" x-text="cat"></button>
-            </template>
-        </div>
+            <div class="filter-tabs">
+                <button @click="filter='all'" :class="{'seg-active':filter==='all'}">Tümü <span class="seg-count" x-text="tasks.length" x-show="tasks.length"></span></button>
+                <button @click="filter='active'" :class="{'seg-active':filter==='active'}">Aktif <span class="seg-count" x-text="activeCount" x-show="activeCount"></span></button>
+                <button @click="filter='in_progress'" :class="{'seg-active':filter==='in_progress'}">Devam <span class="seg-count" x-text="inProgressCount" x-show="inProgressCount"></span></button>
+                <button @click="filter='completed'" :class="{'seg-active':filter==='completed'}">Bitti <span class="seg-count" x-text="completedCount" x-show="completedCount"></span></button>
+            </div>
 
-        <div class="task-list">
+            <div class="cat-chips" x-show="categories.length > 0">
+                <button @click="selectedCategory=null" class="chip" :class="{'chip-active': selectedCategory === null}">Tümü</button>
+                <template x-for="cat in categories" :key="cat">
+                    <button @click="selectedCategory = selectedCategory === cat ? null : cat" class="chip" :class="{'chip-active': selectedCategory === cat}" x-text="cat"></button>
+                </template>
+            </div>
+
+            <div class="task-list">
             <template x-for="task in sortedTasks" :key="task.id">
                 <div class="tcard" :class="{'tcard-done': task.status==='completed', 'tcard-cancel': task.status==='cancelled', 'tcard-overdue': task.dueDate && task.dueDate < Date.now() && task.status!=='completed' && task.status!=='cancelled'}" @click="openDetail(task)">
                     <button @click.stop="toggleComplete(task)" class="tcheck" :class="{'tcheck-on': task.status==='completed', 'tcheck-wip': task.status==='in_progress'}">
@@ -269,6 +288,7 @@ function taskApp() {
         get activeCount() { return this.tasks.filter(t => t.status === 'active').length; },
         get inProgressCount() { return this.tasks.filter(t => t.status === 'in_progress').length; },
         get completedCount() { return this.tasks.filter(t => t.status === 'completed').length; },
+        get overdueCount() { return this.tasks.filter(t => t.dueDate && t.dueDate < Date.now() && t.status !== 'completed' && t.status !== 'cancelled').length; },
         get completionRate() { return this.tasks.length === 0 ? 0 : (this.completedCount / this.tasks.length) * 100; },
 
         get categories() {
@@ -409,7 +429,22 @@ function taskApp() {
             return new Date(ts).toLocaleDateString('tr-TR', { day:'2-digit', month:'short' });
         },
 
-        logout() { localStorage.removeItem('token'); location.href = '/login'; }
+        logout() { localStorage.removeItem('token'); location.href = '/login'; },
+
+        handleKey(e) {
+            if (e.key === 'Escape') {
+                if (this.showDetailModal) this.closeDetail();
+                else if (this.showAddModal) this.showAddModal = false;
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                document.querySelector('.search-input')?.focus();
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+                e.preventDefault();
+                this.showAddModal = true;
+            }
+        }
     };
 }
 </script>
