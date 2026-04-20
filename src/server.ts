@@ -14,6 +14,16 @@ const port = Number(process.env.PORT) || 3000;
 
 const app = new Hono();
 
+function getContentType(filePath: string): string {
+  if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
+  if (filePath.endsWith(".js")) return "application/javascript; charset=utf-8";
+  if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".png")) return "image/png";
+  if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg")) return "image/jpeg";
+  if (filePath.endsWith(".woff2")) return "font/woff2";
+  return "text/plain; charset=utf-8";
+}
+
 app.get("/health", (c) => c.json({ status: "ok", time: new Date().toISOString() }));
 
 app.get("/", (c) => {
@@ -24,6 +34,22 @@ app.get("/", (c) => {
 app.get("/login", (c) => {
   try { return c.html(fs.readFileSync(path.join(publicDir, "login.html"), "utf-8")); }
   catch { return c.text("Login not found", 500); }
+});
+
+app.get("/assets/*", (c) => {
+  try {
+    const assetPath = c.req.path.replace(/^\//, "");
+    const filePath = path.join(publicDir, assetPath);
+    if (!filePath.startsWith(path.join(publicDir, "assets"))) {
+      return c.text("Not found", 404);
+    }
+    if (!fs.existsSync(filePath)) return c.text("Not found", 404);
+    return new Response(fs.readFileSync(filePath), {
+      headers: { "content-type": getContentType(filePath) },
+    });
+  } catch {
+    return c.text("Not found", 404);
+  }
 });
 
 app.post("/api/auth/login", async (c) => {
